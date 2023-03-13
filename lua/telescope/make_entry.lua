@@ -265,6 +265,7 @@ do
 
     local disable_devicons = opts.disable_devicons
     local disable_coordinates = opts.disable_coordinates
+    local disable_column = opts.disable_column
     local only_sort_text = opts.only_sort_text
 
     local execute_keys = {
@@ -311,7 +312,7 @@ do
         local coordinates = ":"
         if not disable_coordinates then
           if entry.lnum then
-            if entry.col then
+            if entry.col and not disable_column then
               coordinates = string.format(":%s:%s:", entry.lnum, entry.col)
             else
               coordinates = string.format(":%s:", entry.lnum)
