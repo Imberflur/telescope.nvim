@@ -410,14 +410,14 @@ layout_strategies.horizontal = make_documented_layout(
 --- <pre>
 --- ┌──────────────────────────────────────────────────┐
 --- │    ┌────────────────────────────────────────┐    │
---- │    |                 Preview                |    │
---- │    |                 Preview                |    │
+--- │    │                 Preview                │    │
+--- │    │                 Preview                │    │
 --- │    └────────────────────────────────────────┘    │
 --- │    ┌────────────────────────────────────────┐    │
---- │    |                 Prompt                 |    │
+--- │    │                 Prompt                 │    │
 --- │    ├────────────────────────────────────────┤    │
---- │    |                 Result                 |    │
---- │    |                 Result                 |    │
+--- │    │                 Result                 │    │
+--- │    │                 Result                 │    │
 --- │    └────────────────────────────────────────┘    │
 --- │                                                  │
 --- │                                                  │
@@ -565,6 +565,7 @@ layout_strategies.cursor = make_documented_layout(
     local preview = initial_options.preview
     local results = initial_options.results
     local prompt = initial_options.prompt
+    local winid = self.original_win_id
 
     local height_opt = layout_config.height
     local height = resolve.resolve_height(height_opt)(self, max_columns, max_lines)
@@ -599,16 +600,16 @@ layout_strategies.cursor = make_documented_layout(
       results.width = prompt.width
     end
 
-    local position = vim.api.nvim_win_get_position(0)
+    local position = vim.api.nvim_win_get_position(winid)
     local winbar = (function()
       if vim.fn.exists "&winbar" == 1 then
-        return vim.o.winbar == "" and 0 or 1
+        return vim.wo[winid].winbar == "" and 0 or 1
       end
       return 0
     end)()
     local top_left = {
-      line = vim.fn.winline() + position[1] + bs + winbar,
-      col = vim.fn.wincol() + position[2],
+      line = vim.api.nvim_win_call(winid, vim.fn.winline) + position[1] + bs + winbar,
+      col = vim.api.nvim_win_call(winid, vim.fn.wincol) + position[2],
     }
     local bot_right = {
       line = top_left.line + height - 1,
@@ -647,16 +648,16 @@ layout_strategies.cursor = make_documented_layout(
 --- ┌──────────────────────────────────────────────────┐
 --- │                                                  │
 --- │    ┌────────────────────────────────────────┐    │
---- │    |                 Preview                |    │
---- │    |                 Preview                |    │
---- │    |                 Preview                |    │
+--- │    │                 Preview                │    │
+--- │    │                 Preview                │    │
+--- │    │                 Preview                │    │
 --- │    └────────────────────────────────────────┘    │
 --- │    ┌────────────────────────────────────────┐    │
---- │    |                 Result                 |    │
---- │    |                 Result                 |    │
+--- │    │                 Result                 │    │
+--- │    │                 Result                 │    │
 --- │    └────────────────────────────────────────┘    │
 --- │    ┌────────────────────────────────────────┐    │
---- │    |                 Prompt                 |    │
+--- │    │                 Prompt                 │    │
 --- │    └────────────────────────────────────────┘    │
 --- │                                                  │
 --- └──────────────────────────────────────────────────┘
@@ -775,9 +776,13 @@ layout_strategies.flex = make_documented_layout(
 
     if max_columns < flip_columns and max_lines > flip_lines then
       self.__flex_strategy = "vertical"
+      self.layout_config.flip_columns = nil
+      self.layout_config.flip_lines = nil
       return layout_strategies.vertical(self, max_columns, max_lines, layout_config.vertical)
     else
       self.__flex_strategy = "horizontal"
+      self.layout_config.flip_columns = nil
+      self.layout_config.flip_lines = nil
       return layout_strategies.horizontal(self, max_columns, max_lines, layout_config.horizontal)
     end
   end
@@ -897,6 +902,9 @@ layout_strategies.bottom_pane = make_documented_layout(
       end
       if type(results.title) == "string" then
         results.title = { { pos = "S", text = results.title } }
+      end
+      if type(preview.title) == "string" then
+        preview.title = { { pos = "S", text = preview.title } }
       end
     elseif layout_config.prompt_position == "bottom" then
       results.line = max_lines - results.height - (1 + bs) + 1

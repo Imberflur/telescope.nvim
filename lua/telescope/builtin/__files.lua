@@ -12,7 +12,7 @@ local log = require "telescope.log"
 
 local Path = require "plenary.path"
 
-local flatten = vim.tbl_flatten
+local flatten = utils.flatten
 local filter = vim.tbl_filter
 
 local files = {}
@@ -96,12 +96,12 @@ files.live_grep = function(opts)
   local vimgrep_arguments = opts.vimgrep_arguments or conf.vimgrep_arguments
   local search_dirs = opts.search_dirs
   local grep_open_files = opts.grep_open_files
-  opts.cwd = opts.cwd and vim.fn.expand(opts.cwd) or vim.loop.cwd()
+  opts.cwd = opts.cwd and utils.path_expand(opts.cwd) or vim.loop.cwd()
 
   local filelist = get_open_filelist(grep_open_files, opts.cwd)
   if search_dirs then
     for i, path in ipairs(search_dirs) do
-      search_dirs[i] = vim.fn.expand(path)
+      search_dirs[i] = utils.path_expand(path)
     end
   end
 
@@ -124,6 +124,10 @@ files.live_grep = function(opts)
     for i = 1, #opts.glob_pattern do
       additional_args[#additional_args + 1] = "--glob=" .. opts.glob_pattern[i]
     end
+  end
+
+  if opts.file_encoding then
+    additional_args[#additional_args + 1] = "--encoding=" .. opts.file_encoding
   end
 
   local args = flatten { vimgrep_arguments, additional_args }
@@ -163,7 +167,7 @@ end
 
 files.grep_string = function(opts)
   -- TODO: This should probably check your visual selection as well, if you've got one
-  opts.cwd = opts.cwd and vim.fn.expand(opts.cwd) or vim.loop.cwd()
+  opts.cwd = opts.cwd and utils.path_expand(opts.cwd) or vim.loop.cwd()
   local vimgrep_arguments = vim.F.if_nil(opts.vimgrep_arguments, conf.vimgrep_arguments)
   local word = vim.F.if_nil(opts.search, vim.fn.expand "<cword>")
   local search = opts.use_regex and word or escape_chars(word)
@@ -175,6 +179,10 @@ files.grep_string = function(opts)
     elseif type(opts.additional_args) == "table" then
       additional_args = opts.additional_args
     end
+  end
+
+  if opts.file_encoding then
+    additional_args[#additional_args + 1] = "--encoding=" .. opts.file_encoding
   end
 
   if search == "" then
@@ -197,7 +205,7 @@ files.grep_string = function(opts)
     end
   elseif opts.search_dirs then
     for _, path in ipairs(opts.search_dirs) do
-      table.insert(args, vim.fn.expand(path))
+      table.insert(args, utils.path_expand(path))
     end
   end
 
@@ -250,7 +258,7 @@ files.find_files = function(opts)
 
   if search_dirs then
     for k, v in pairs(search_dirs) do
-      search_dirs[k] = vim.fn.expand(v)
+      search_dirs[k] = utils.path_expand(v)
     end
   end
 
@@ -327,7 +335,7 @@ files.find_files = function(opts)
   end
 
   if opts.cwd then
-    opts.cwd = vim.fn.expand(opts.cwd)
+    opts.cwd = utils.path_expand(opts.cwd)
   end
 
   opts.entry_maker = opts.entry_maker or make_entry.gen_from_file(opts)
@@ -410,7 +418,7 @@ end
 
 files.current_buffer_fuzzy_find = function(opts)
   -- All actions are on the current buffer
-  local filename = vim.fn.expand(vim.api.nvim_buf_get_name(opts.bufnr))
+  local filename = vim.api.nvim_buf_get_name(opts.bufnr)
   local filetype = vim.api.nvim_buf_get_option(opts.bufnr, "filetype")
 
   local lines = vim.api.nvim_buf_get_lines(opts.bufnr, 0, -1, false)
@@ -432,7 +440,8 @@ files.current_buffer_fuzzy_find = function(opts)
   local _, ts_configs = pcall(require, "nvim-treesitter.configs")
 
   local parser_ok, parser = pcall(vim.treesitter.get_parser, opts.bufnr, filetype)
-  local query_ok, query = pcall(vim.treesitter.get_query, filetype, "highlights")
+  local get_query = vim.treesitter.query.get or vim.treesitter.get_query
+  local query_ok, query = pcall(get_query, filetype, "highlights")
   if parser_ok and query_ok and ts_ok and ts_configs.is_enabled("highlight", filetype, opts.bufnr) then
     local root = parser:parse()[1]:root()
 
@@ -505,6 +514,10 @@ files.current_buffer_fuzzy_find = function(opts)
         action_set.select:enhance {
           post = function()
             local selection = action_state.get_selected_entry()
+            if not selection then
+              return
+            end
+
             vim.api.nvim_win_set_cursor(0, { selection.lnum, 0 })
           end,
         }
@@ -552,7 +565,7 @@ files.tags = function(opts)
                 return "\\" .. x
               end)
 
-              vim.cmd "norm! gg"
+              vim.cmd "keepjumps norm! gg"
               vim.fn.search(scode)
               vim.cmd "norm! zz"
             else

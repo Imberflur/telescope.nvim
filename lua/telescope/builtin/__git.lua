@@ -35,13 +35,16 @@ git.files = function(opts)
   -- By creating the entry maker after the cwd options,
   -- we ensure the maker uses the cwd options when being created.
   opts.entry_maker = vim.F.if_nil(opts.entry_maker, make_entry.gen_from_file(opts))
-  local git_command = vim.F.if_nil(opts.git_command, { "git", "ls-files", "--exclude-standard", "--cached" })
+  local git_command = vim.F.if_nil(
+    opts.git_command,
+    { "git", "-c", "core.quotepath=false", "ls-files", "--exclude-standard", "--cached" }
+  )
 
   pickers
     .new(opts, {
       prompt_title = "Git Files",
       finder = finders.new_oneshot_job(
-        vim.tbl_flatten {
+        utils.flatten {
           git_command,
           show_untracked and "--others" or nil,
           recurse_submodules and "--recurse-submodules" or nil,
@@ -88,7 +91,7 @@ git.stash = function(opts)
     .new(opts, {
       prompt_title = "Git Stash",
       finder = finders.new_oneshot_job(
-        vim.tbl_flatten {
+        utils.flatten {
           "git",
           "--no-pager",
           "stash",
@@ -122,7 +125,7 @@ git.bcommits = function(opts)
     .new(opts, {
       prompt_title = "Git BCommits",
       finder = finders.new_oneshot_job(
-        vim.tbl_flatten {
+        utils.flatten {
           git_command,
           opts.current_file,
         },
@@ -363,7 +366,7 @@ end
 
 local set_opts_cwd = function(opts)
   if opts.cwd then
-    opts.cwd = vim.fn.expand(opts.cwd)
+    opts.cwd = utils.path_expand(opts.cwd)
   else
     opts.cwd = vim.loop.cwd()
   end

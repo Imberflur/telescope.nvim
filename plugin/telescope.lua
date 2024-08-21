@@ -116,9 +116,18 @@ end, {
     local n = #l - 2
 
     if n == 0 then
+      local commands = { builtin_list, extensions_list }
+      -- TODO(clason): remove when dropping support for Nvim 0.9
+      if vim.fn.has "nvim-0.11" == 1 then
+        commands = vim.iter(commands):flatten():totable()
+      else
+        commands = vim.tbl_flatten(commands)
+      end
+      table.sort(commands)
+
       return vim.tbl_filter(function(val)
         return vim.startswith(val, l[2])
-      end, vim.tbl_extend("force", builtin_list, extensions_list))
+      end, commands)
     end
 
     if n == 1 then
@@ -128,13 +137,18 @@ end, {
 
       if #is_extension > 0 then
         local extensions_subcommand_dict = require("telescope.command").get_extensions_subcommand()
+        local commands = extensions_subcommand_dict[l[2]]
+        table.sort(commands)
+
         return vim.tbl_filter(function(val)
           return vim.startswith(val, l[3])
-        end, extensions_subcommand_dict[l[2]])
+        end, commands)
       end
     end
 
     local options_list = vim.tbl_keys(require("telescope.config").values)
+    table.sort(options_list)
+
     return vim.tbl_filter(function(val)
       return vim.startswith(val, l[#l])
     end, options_list)

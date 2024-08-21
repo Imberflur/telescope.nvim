@@ -104,7 +104,7 @@ action_set.edit = function(prompt_bufnr, command)
 
     -- TODO: Check for off-by-one
     row = entry.row or entry.lnum
-    col = vim.F.if_nil(entry.col, 1)
+    col = entry.col
   elseif not entry.bufnr then
     -- TODO: Might want to remove this and force people
     -- to put stuff into `filename`
@@ -158,8 +158,26 @@ action_set.edit = function(prompt_bufnr, command)
     -- check if we didn't pick a different buffer
     -- prevents restarting lsp server
     if vim.api.nvim_buf_get_name(0) ~= filename or command ~= "edit" then
-      filename = Path:new(vim.fn.fnameescape(filename)):normalize(vim.loop.cwd())
-      pcall(vim.cmd, string.format("%s %s", command, filename))
+      filename = Path:new(filename):normalize(vim.loop.cwd())
+      pcall(vim.cmd, string.format("%s %s", command, vim.fn.fnameescape(filename)))
+    end
+  end
+
+  -- HACK: fixes folding: https://github.com/nvim-telescope/telescope.nvim/issues/699
+  if vim.wo.foldmethod == "expr" then
+    vim.schedule(function()
+      vim.opt.foldmethod = "expr"
+    end)
+  end
+
+  local pos = vim.api.nvim_win_get_cursor(0)
+  if col == nil then
+    if row == pos[1] then
+      col = pos[2] + 1
+    elseif row == nil then
+      row, col = pos[1], pos[2] + 1
+    else
+      col = 1
     end
   end
 

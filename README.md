@@ -110,15 +110,14 @@ Using [lazy.nvim](https://github.com/folke/lazy.nvim)
 -- init.lua:
     {
     'nvim-telescope/telescope.nvim', tag = '0.1.1',
--- or                              , branch = '0.1.1',
+-- or                              , branch = '0.1.x',
       dependencies = { 'nvim-lua/plenary.nvim' }
     }
 
 -- plugins/telescope.lua:
 return {
-    {
     'nvim-telescope/telescope.nvim', tag = '0.1.1',
--- or                              , branch = '0.1.1',
+-- or                              , branch = '0.1.x',
       dependencies = { 'nvim-lua/plenary.nvim' }
     }
 ```
@@ -133,8 +132,8 @@ to get an understanding of how to use Telescope and how to configure it.
 
 ## Usage
 
-Try the command `:Telescope find_files<cr>`
-  to see if `telescope.nvim` is installed correctly.
+Try the command `:Telescope find_files`
+to see if `telescope.nvim` is installed correctly.
 
 Using VimL:
 
@@ -251,7 +250,7 @@ Many familiar mapping patterns are set up as defaults.
 | `<C-d>`        | Scroll down in preview window                        |
 | `<C-/>`        | Show mappings for picker actions (insert mode)       |
 | `?`            | Show mappings for picker actions (normal mode)       |
-| `<C-c>`        | Close telescope                                      |
+| `<C-c>`        | Close telescope (insert mode)                        |
 | `<Esc>`        | Close telescope (in normal mode)                     |
 | `<Tab>`        | Toggle selection and move to next selection          |
 | `<S-Tab>`      | Toggle selection and move to prev selection          |
@@ -358,7 +357,7 @@ Built-in functions. Ready to be bound to any key you like.
 |-------------------------------------|------------------------------------------------------------------------------------------------------------|
 | `builtin.git_commits`               | Lists git commits with diff preview, checkout action `<cr>`, reset mixed `<C-r>m`, reset soft `<C-r>s` and reset hard `<C-r>h` |
 | `builtin.git_bcommits`              | Lists buffer's git commits with diff preview and checks them out on `<cr>`                                 |
-| `builtin.git_branches`              | Lists all branches with log preview, checkout action `<cr>`, track action `<C-t>` and rebase action`<C-r>` |
+| `builtin.git_branches`              | Lists all branches with log preview, checkout action `<cr>`, track action `<C-t>`, rebase action`<C-r>`, create action `<C-a>`, switch action `<C-s>`, delete action `<C-d>` and merge action `<C-y>` |
 | `builtin.git_status`                | Lists current changes per file with diff preview and add action. (Multi-selection still WIP)               |
 | `builtin.git_stash`                 | Lists stash items in current repository with ability to apply them on `<cr>`                               |
 

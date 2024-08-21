@@ -69,12 +69,12 @@ local function call_hierarchy(opts, method, title, direction, item)
     local locations = {}
     for _, ch_call in pairs(result) do
       local ch_item = ch_call[direction]
-      for _, range in pairs(ch_call.fromRanges) do
+      for _, rng in pairs(ch_call.fromRanges) do
         table.insert(locations, {
           filename = vim.uri_to_fname(ch_item.uri),
           text = ch_item.name,
-          lnum = range.start.line + 1,
-          col = range.start.character + 1,
+          lnum = rng.start.line + 1,
+          col = rng.start.character + 1,
         })
       end
     end
@@ -153,7 +153,7 @@ local function list_or_jump(action, title, opts)
     local flattened_results = {}
     if result then
       -- textDocument/definition can return Location or Location[]
-      if not vim.tbl_islist(result) then
+      if not utils.islist(result) then
         flattened_results = { result }
       end
 
@@ -165,13 +165,23 @@ local function list_or_jump(action, title, opts)
     if #flattened_results == 0 then
       return
     elseif #flattened_results == 1 and opts.jump_type ~= "never" then
-      if params.textDocument.uri ~= flattened_results[1].uri then
+      local current_uri = params.textDocument.uri
+      local target_uri = flattened_results[1].uri or flattened_results[1].targetUri
+      if current_uri ~= target_uri then
+        local cmd
+        local file_path = vim.uri_to_fname(target_uri)
         if opts.jump_type == "tab" then
-          vim.cmd "tabedit"
+          cmd = "tabedit"
         elseif opts.jump_type == "split" then
-          vim.cmd "new"
+          cmd = "new"
         elseif opts.jump_type == "vsplit" then
-          vim.cmd "vnew"
+          cmd = "vnew"
+        elseif opts.jump_type == "tab drop" then
+          cmd = "tab drop"
+        end
+
+        if cmd then
+          vim.cmd(string.format("%s %s", cmd, file_path))
         end
       end
       vim.lsp.util.jump_to_location(flattened_results[1], offset_encoding)
@@ -338,44 +348,47 @@ lsp.dynamic_workspace_symbols = function(opts)
     :find()
 end
 
-local function check_capabilities(feature, bufnr)
-  local clients = vim.lsp.buf_get_clients(bufnr)
-
-  local supported_client = false
-  for _, client in pairs(clients) do
-    supported_client = client.server_capabilities[feature]
-    if supported_client then
-      break
-    end
-  end
-
-  if supported_client then
-    return true
-  else
-    if #clients == 0 then
-      utils.notify("builtin.lsp_*", {
-        msg = "no client attached",
-        level = "INFO",
-      })
+local function check_capabilities(method, bufnr)
+  local clients = (function()
+    if vim.fn.has "nvim-0.10" == 1 then
+      return vim.lsp.get_clients { bufnr = bufnr }
+    elseif vim.lsp.get_active_clients then
+      return vim.lsp.get_active_clients { bufnr = bufnr }
     else
-      utils.notify("builtin.lsp_*", {
-        msg = "server does not support " .. feature,
-        level = "INFO",
-      })
+      return vim.lsp.buf_get_clients(bufnr)
     end
-    return false
+  end)()
+
+  for _, client in pairs(clients) do
+    -- we always pass opts, even though older nvim version might not have a second param
+    if client.supports_method(method, { bufnr = bufnr }) then
+      return true
+    end
   end
+
+  if #clients == 0 then
+    utils.notify("builtin.lsp_*", {
+      msg = "no client attached",
+      level = "INFO",
+    })
+  else
+    utils.notify("builtin.lsp_*", {
+      msg = "server does not support " .. method,
+      level = "INFO",
+    })
+  end
+  return false
 end
 
 local feature_map = {
-  ["document_symbols"] = "documentSymbolProvider",
-  ["references"] = "referencesProvider",
-  ["definitions"] = "definitionProvider",
-  ["type_definitions"] = "typeDefinitionProvider",
-  ["implementations"] = "implementationProvider",
-  ["workspace_symbols"] = "workspaceSymbolProvider",
-  ["incoming_calls"] = "callHierarchyProvider",
-  ["outgoing_calls"] = "callHierarchyProvider",
+  ["document_symbols"] = "textDocument/documentSymbol",
+  ["references"] = "textDocument/references",
+  ["definitions"] = "textDocument/definition",
+  ["type_definitions"] = "textDocument/typeDefinition",
+  ["implementations"] = "textDocument/implementation",
+  ["workspace_symbols"] = "workspace/symbol",
+  ["incoming_calls"] = "callHierarchy/incomingCalls",
+  ["outgoing_calls"] = "callHierarchy/outgoingCalls",
 }
 
 local function apply_checks(mod)
@@ -383,8 +396,8 @@ local function apply_checks(mod)
     mod[k] = function(opts)
       opts = opts or {}
 
-      local feature_name = feature_map[k]
-      if feature_name and not check_capabilities(feature_name, opts.bufnr) then
+      local method = feature_map[k]
+      if method and not check_capabilities(method, opts.bufnr) then
         return
       end
       v(opts)
